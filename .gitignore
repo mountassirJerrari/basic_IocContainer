@@ -1,0 +1,29 @@
+# Compiled class files
+*.class
+
+# Log files
+*.log
+
+# IntelliJ IDEA project files
+.idea/
+
+# Eclipse project files
+.classpath
+.project
+
+# Maven build directories
+target/
+
+# Gradle build directories
+build/
+
+# Visual Studio Code settings
+.vscode/
+
+# Operating System-specific files
+.DS_Store
+Thumbs.db
+
+# User-specific settings
+*.iml
+.idea_modules/
