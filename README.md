@@ -17,6 +17,8 @@ This is a basic implementation of an IoC (Inversion of Control) container in Jav
 5. **Default Implementation**: You can use the `@Default` annotation to specify the default implementation for an interface if there are multiple implementations. To specify the interfaces that a class should be the default implementation for, use the `@Default` annotation with an array of interface classes.
 
 6. **Prototype Scope**: You can mark components with the `@Prototype` annotation to create a new instance each time it is requested.
+   
+7. - **Qualifier and Name-Based Injection**: Fields are injected by name. If a field is not annotated with `@Qualifier`, the container will prioritize matching by field name. If no qualifier and no matching field name are found, the default implementation is used.
 
 ## Usage
 
