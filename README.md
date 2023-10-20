@@ -1,8 +1,7 @@
 # An Inversion of Control (IOC) Container
 
 **Note: This project is still in development.**
-
-it is a lightWeight Java-based IOC container designed to facilitate the management of components, dependency injection, and inversion of control within your application.
+a lightWeight Java-based IOC container designed to facilitate the management of components, dependency injection, and inversion of control within your application.
 
 
 ### Installation
