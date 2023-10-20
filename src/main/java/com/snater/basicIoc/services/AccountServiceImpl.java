@@ -5,8 +5,13 @@ import com.snater.basicIoc.annotations.Default;
 @Component
 public class AccountServiceImpl implements AccountService {
 
-
+	private Long amount;
     public Long getAccountNumber(String userName) {
-        return 12345689L;
+        return amount;
     }
+	@Override
+	public void setAmount(int i) {
+		amount = (long) i ;
+		
+	}
 }

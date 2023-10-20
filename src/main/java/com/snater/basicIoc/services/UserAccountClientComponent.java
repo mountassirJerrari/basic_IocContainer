@@ -9,12 +9,17 @@ import com.snater.basicIoc.annotations.Qualifier;
  */
 @Component
 public class UserAccountClientComponent {
-
     @Autowired
     private UserService userAccountCombine;
 
+    public AccountService accountServiceImp;
+    
     @Autowired
-    private AccountService accountServiceImp;
+    public UserAccountClientComponent(@Qualifier("userAccountCombined") AccountService aService) {
+    	accountServiceImp = aService ;
+    
+    	
+    }
 
     public void displayUserAccount() {
         String username = userAccountCombine.getUserName();

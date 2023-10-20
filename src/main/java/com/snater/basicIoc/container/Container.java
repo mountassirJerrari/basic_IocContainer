@@ -1,176 +1,146 @@
 package com.snater.basicIoc.container;
 
-import java.lang.reflect.InvocationTargetException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
-import java.util.Optional;
-import java.util.Set;
-import java.util.stream.Collectors;
-
 import javax.management.RuntimeErrorException;
+import java.util.*;
+import java.util.Map.Entry;
+import java.util.stream.Collectors;
 
 import com.snater.basicIoc.annotations.Component;
 import com.snater.basicIoc.annotations.Default;
+import com.snater.basicIoc.annotations.Prototype;
 import com.snater.basicIoc.autowiring.WiringEngine;
 import com.snater.basicIoc.scanning.ClassPathScanner;
 
 public class Container {
+    private Map<Class<?>, List<Class<?>>> diMap = new HashMap<>();
+    private Map<Class<?>, Object> applicationScope = new HashMap<>();
+    private static Container instance;
+    private final ClassPathScanner classScanner;
+    private final WiringEngine wiringEngine;
 
-	private Map<Class<?>, List<Class<?>>> diMap;
-	private Map<Class<?>, Object> applicationScope;
-	private static Container instance;
-	private ClassPathScanner classScanner;
-	private WiringEngine wiringEngine;
+    private Container() {
+        classScanner = new ClassPathScanner();
+        wiringEngine = new WiringEngine();
+    }
 
-	private Container() {
+    public static Container getInstance(Class<?> mainClass) throws Exception {
+        if (instance == null) {
+            instance = new Container();
+            instance.init(mainClass);
+        }
+        return instance;
+    }
 
-		diMap = new HashMap<>();
-		applicationScope = new HashMap<>();
-		classScanner = new ClassPathScanner();
-		wiringEngine = new WiringEngine();
-	}
+    private void init(Class<?> mainClass) throws Exception {
+        List<Class<?>> types = classScanner.getClasses(mainClass.getPackageName());
 
-	public static Container getInstance(Class<?> mainClass) throws InstantiationException, IllegalAccessException,
-			IllegalArgumentException, InvocationTargetException, NoSuchMethodException, SecurityException {
+        for (Class<?> implementationClass : types) {
+            Class<?>[] interfaces = implementationClass.getInterfaces();
 
-		if (instance == null) {
-			instance = new Container();
+            if (interfaces.length == 0) {
+                diMap.put(implementationClass, Collections.singletonList(implementationClass));
+            } else {
+                diMap.put(implementationClass, Arrays.asList(interfaces));
+            }
+        }
 
-			instance.init(mainClass);
-		}
-		return instance;
-	}
+        for (Class<?> classz : types) {
+            if (classz.isAnnotationPresent(Component.class)) {
+                Object classInstance = wiringEngine.getConstructorInjectedInstance(instance, classz);
+                applicationScope.put(classz, classInstance);
+                wiringEngine.autowire(this, classz, classInstance);
+            }
+        }
+    }
 
-	private void init(Class<?> mainClass) throws InstantiationException, IllegalAccessException,
-			IllegalArgumentException, InvocationTargetException, NoSuchMethodException, SecurityException {
+    public <T> T getService(Class<T> classz) {
+        try {
+            return instance.getBeanInstance(classz);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
 
-		List<Class<?>> types = classScanner.getClasses(mainClass.getPackageName());
-		for (Class<?> implementationClass : types) {
+    public Class<?> getImplementationClass(Class<?> interfaceClass, String fieldName, String qualifier) {
+        Set<Entry<Class<?>, List<Class<?>>>> implementationClasses = diMap.entrySet().stream()
+                .filter(entry -> entry.getValue().contains(interfaceClass))
+                .collect(Collectors.toSet());
 
-			Class<?>[] interfaces = implementationClass.getInterfaces();
-			if (interfaces.length == 0) {
-				List<Class<?>> impList = new ArrayList<>();
-				impList.add(implementationClass);
-				diMap.put(implementationClass, impList);
-			} else {
-				List<Class<?>> impList = new ArrayList<>();
+        String errorMessage = "";
 
-				for (Class<?> iface : interfaces) {
-					impList.add(iface);
-				}
-				diMap.put(implementationClass, impList);
-			}
-		}
-		for (Class<?> classz : types) {
-			if (classz.isAnnotationPresent(Component.class)) {
-				Object classInstance = classz.getDeclaredConstructor().newInstance();
-				;
-				applicationScope.put(classz, classInstance);
+        if (implementationClasses == null || implementationClasses.size() == 0) {
+            errorMessage = "No implementation found for interface " + interfaceClass.getName();
+        } else if (implementationClasses.size() == 1) {
+            Optional<Entry<Class<?>, List<Class<?>>>>
+            optional = implementationClasses.stream().findFirst();
 
-				wiringEngine.autowire(this, classz, classInstance);
-			}
-		}
+            if (optional.isPresent()) {
+                return optional.get().getKey();
+            }
+        } else if (implementationClasses.size() > 1) {
+            int count = 0;
+            Class<?> defaultImplementation = null;
 
-	}
+            for (Entry<Class<?>, List<Class<?>>> entry : implementationClasses) {
+                if (entry.getKey().isAnnotationPresent(Default.class)) {
+                    Class<?>[] faces = entry.getKey().getAnnotation(Default.class).value();
 
-	public <T> T getService(Class<T> classz) {
-		try {
-			return instance.getBeanInstance(classz);
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
-		return null;
-	}
+                    for (Class<?> face : faces) {
+                        if (interfaceClass.getName().equals(face.getName())) {
+                            count++;
+                            defaultImplementation = entry.getKey();
+                        }
+                    }
+                }
+            }
 
-	private Class<?> getImplimentationClass(Class<?> interfaceClass, final String fieldName, final String qualifier) {
-		Class<?> defaultimplementation = null;
-		Set<Entry<Class<?>, List<Class<?>>>> implementationClasses = diMap.entrySet().stream().filter(entry -> {
+            if (count > 1) {
+                throw new RuntimeErrorException(new Error("There are " + count +
+                        " default classes. Expected a single default implementation or use @CustomQualifier to resolve conflicts."));
+            }
 
-			List<Class<?>> ifaceList = entry.getValue();
+            final String findBy = (qualifier == null || qualifier.trim().length() == 0) ? fieldName : qualifier;
+            Optional<Entry<Class<?>, List<Class<?>>>>
+            optional = implementationClasses.stream()
+                    .filter(entry -> entry.getKey().getSimpleName().equalsIgnoreCase(findBy))
+                    .findAny();
 
-			return ifaceList.contains(interfaceClass);
-		}).collect(Collectors.toSet());
-		String errorMessage = "";
-		if (implementationClasses == null || implementationClasses.size() == 0) {
-			errorMessage = "no implementation found for interface " + interfaceClass.getName();
-		} else if (implementationClasses.size() == 1) {
-			Optional<Entry<Class<?>, List<Class<?>>>> optional = implementationClasses.stream().findFirst();
-			if (optional.isPresent()) {
-				return optional.get().getKey();
-			}
-		} else if (implementationClasses.size() > 1) {
-			// handling the default implimentation
-			int count = 0;
+            if (optional.isPresent()) {
+                return optional.get().getKey();
+            } else {
+                if (defaultImplementation != null) {
+                    return defaultImplementation;
+                }
+                errorMessage = "There are " + implementationClasses.size() + " implementations of interface " +
+                        interfaceClass.getName() + ". Expected a single implementation or use @CustomQualifier to resolve conflicts.";
+            }
+        }
 
-			for (Entry<Class<?>, List<Class<?>>> entry : implementationClasses) {
-				if (entry.getKey().isAnnotationPresent(Default.class)) {
+        throw new RuntimeErrorException(new Error(errorMessage));
+    }
 
-					Class<?>[] faces = entry.getKey().getAnnotation(Default.class).value();
-					
-					for (Class<?> face : faces) {
-						if (interfaceClass.getName().equals(face.getName())) {
-							count++;
+    @SuppressWarnings("unchecked")
+    public <T> T getBeanInstance(Class<T> interfaceClass) throws Exception {
+        return (T) getBeanInstance(interfaceClass, null, null);
+    }
 
-							defaultimplementation = entry.getKey();
-						}
-					}
+    public Object getBeanInstance(Class<?> interfaceClass, String fieldName, String qualifier)
+            throws Exception {
+        Class<?> implementationClass = getImplementationClass(interfaceClass, fieldName, qualifier);
 
-				}
-			}
-			if (count > 1) {
-				throw new RuntimeErrorException(new Error("there is " + count
-						+ " default classes ,Expected single default implementation or make use of @CustomQualifier to resolve conflict "));
-			}
-			final String findBy = (qualifier == null || qualifier.trim().length() == 0) ? fieldName : qualifier;
-			Optional<Entry<Class<?>, List<Class<?>>>> optional = implementationClasses.stream()
-					.filter(entry -> entry.getKey().getSimpleName().equalsIgnoreCase(findBy)).findAny();
-			if (optional.isPresent()) {
-				return optional.get().getKey();
-			} else {
+        if (implementationClass.isAnnotationPresent(Prototype.class)) {
+            return wiringEngine.getConstructorInjectedInstance(instance, implementationClass);
+        }
 
-				if (defaultimplementation != null) {
-					return defaultimplementation;
-				}
-				errorMessage = "There are " + implementationClasses.size() + " implimentations of interface "
-						+ interfaceClass.getName()
-						+ " Expected single implementation or make use of @CustomQualifier to resolve conflict";
-			}
-		}
-		throw new RuntimeErrorException(new Error(errorMessage));
-	}
+        if (applicationScope.containsKey(implementationClass)) {
+            return applicationScope.get(implementationClass);
+        }
 
-	/**
-	 * Create and Get the Object instance of the implementation class for input
-	 * interface service
-	 * 
-	 * @throws SecurityException
-	 * @throws NoSuchMethodException
-	 * @throws InvocationTargetException
-	 * @throws IllegalArgumentException
-	 */
-	@SuppressWarnings("unchecked")
-	public <T> T getBeanInstance(Class<T> interfaceClass) throws InstantiationException, IllegalAccessException,
-			IllegalArgumentException, InvocationTargetException, NoSuchMethodException, SecurityException {
-		return (T) getBeanInstance(interfaceClass, null, null);
-	}
-
-	public <T> Object getBeanInstance(Class<T> interfaceClass, String fieldName, String qualifier)
-			throws InstantiationException, IllegalAccessException, IllegalArgumentException, InvocationTargetException,
-			NoSuchMethodException, SecurityException {
-		Class<?> implementationClass = getImplimentationClass(interfaceClass, fieldName, qualifier);
-
-		if (applicationScope.containsKey(implementationClass)) {
-			return applicationScope.get(implementationClass);
-		}
-
-		synchronized (applicationScope) {
-			Object service = implementationClass.getDeclaredConstructor().newInstance();
-			applicationScope.put(implementationClass, service);
-			return service;
-		}
-	}
-
+        synchronized (applicationScope) {
+            Object service = wiringEngine.getConstructorInjectedInstance(instance, implementationClass);
+            applicationScope.put(implementationClass, service);
+            return service;
+        }
+    }
 }
