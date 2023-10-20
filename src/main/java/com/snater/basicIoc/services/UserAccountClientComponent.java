@@ -5,21 +5,20 @@ import com.snater.basicIoc.annotations.Qualifier;
 
 /**
  * Client class, having userService and accountService expected to initialized by
- * CustomInjector.java
+ * CustomInjector.java 
  */
 @Component
 public class UserAccountClientComponent {
 
     @Autowired
-    private UserService userService;
+    private UserService userAccountCombine;
 
     @Autowired
-    @Qualifier(value = "accountServiceImpl")
-    private AccountService accountService;
+    private AccountService accountServiceImp;
 
     public void displayUserAccount() {
-        String username = userService.getUserName();
-        Long accountNumber = accountService.getAccountNumber(username);
+        String username = userAccountCombine.getUserName();
+        Long accountNumber = accountServiceImp.getAccountNumber(username);
         System.out.println("\n\tUser Name: " + username + "\n\tAccount Number: " + accountNumber);
     }
 }
