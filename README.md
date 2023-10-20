@@ -20,12 +20,9 @@ This is a basic implementation of an IoC (Inversion of Control) container in Jav
    
 7. - **Qualifier and Name-Based Injection**: Fields are injected by name. If a field is not annotated with `@Qualifier`, the container will prioritize matching by field name. If no qualifier and no matching field name are found, the default implementation is used.
 
-## Usage
 
 
-1. Create an instance of the `Container` class and call the `getService` method to retrieve your components.
 
-2. The container handles dependency resolution and creates instances of your components as needed.
 
 ## Limitations
 
@@ -35,6 +32,22 @@ This is a basic implementation of an IoC (Inversion of Control) container in Jav
   ## Feel Free to Experiment
 
  i encourage you to experiment and learn with this IoC container. Explore the source code, make modifications, and leave a star if u can.
+## Usage
+1. Create an instance of the `Container` class and call the `getService` method to retrieve your components.
+
+2. The container handles dependency resolution and creates instances of your components as needed.
+
+3. Add the `@Component` annotation to your classes to mark them as components to be managed by the IoC container.
+4. Use `@Default` to specify default implementations for interfaces.
+   
+ ### Example:
+
+```java
+@Component
+@Default({MyInterface1.class, MyInterface2.class})
+public class MyComponent implements MyInterface1, MyInterface2 {
+    // ...
+}
 
 
 
